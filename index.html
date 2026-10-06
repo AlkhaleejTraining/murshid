@@ -20,6 +20,8 @@
 
 
 
+
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=Readex+Pro:wght@500;600;700&display=swap">
@@ -509,6 +511,7 @@ function recompute(){
   state.idx = 0; state.zoom='step'; trk.stepM=0; trk.total=0;
   state.view = state.steps.length ? state.steps[0].floor : N[state.dest].floor;
   renderAll();
+  if(voice.acted) speakCurrent();
 }
 
 /* ---------- أدوات ---------- */
@@ -521,6 +524,8 @@ const ICONS = {
   elevator:'<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 10l3-3 3 3M9 14l3 3 3-3"/>',
   stairs:'<path d="M4 20h4v-4h4v-4h4V8h4"/>',
   arrive:'<path d="M6 21V4M6 4h11l-2.5 4L17 12H6"/>',
+  sound:'<path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/>',
+  mute:'<path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M17 10l4 4M21 10l-4 4"/>',
   walk:'<circle cx="13" cy="4" r="2"/><path d="M9 21l2-6 3 3v3M7 12l3-4 4 1 2 4 2 1M10 8l1 7"/>',
   car:'<path d="M5 16V11l2-5h10l2 5v5M5 16h14M5 16v2M19 16v2M7.5 13.5h.01M16.5 13.5h.01"/>',
   zoomIn:'<circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5M8.5 11h5M11 8.5v5"/>',
@@ -568,7 +573,8 @@ function renderGuide(){
   $('sign').innerHTML = `<div class="sign-ico">${icon(s.icon)}</div>
     <div><div class="sign-meta">الخطوة ${state.idx+1} من ${steps.length} · ${FLOORS[s.floor].name}</div><div class="sign-text">${esc(s.text)}</div></div>
     <div class="sign-nav"><button type="button" id="prev" ${state.idx===0?'disabled':''}>السابق</button><button type="button" id="next" class="primary" ${last?'disabled':''}>${last?'وصلت':'التالي'}</button></div>
-    <div class="track"><button type="button" id="trackBtn" class="trk ${trk.on?'on':''}">${icon('walk')}${trk.on?'إيقاف التتبع':'تتبّع خطواتي تلقائياً'}</button><span id="trackInfo">${trackInfo()}</span></div>`;
+    <div class="track"><button type="button" id="trackBtn" class="trk ${trk.on?'on':''}">${icon('walk')}${trk.on?'إيقاف التتبع':'تتبّع خطواتي تلقائياً'}</button><span id="trackInfo">${trackInfo()}</span><button type="button" id="voiceBtn" class="trk ${voice.on?'on':''}" aria-pressed="${voice.on}">${icon(voice.on?'sound':'mute')}${voice.on?'الصوت يعمل':'قراءة بالصوت'}</button></div>
+    ${voice.msg?`<div class="sign-meta" style="grid-column:1/-1">${esc(voice.msg)}</div>`:''}`;
   $('stepList').innerHTML = steps.map((st,i)=>`<li><button type="button" data-step="${i}" ${i===state.idx?'aria-current="step"':''}>${icon(st.icon)}<span>${esc(st.text)}</span><span class="ftag">${FLOORS[st.floor].tab}</span></button></li>`).join('');
 }
 function renderActions(){
@@ -677,9 +683,41 @@ function renderAll(){ renderPanel(); renderGuide(); renderTabs(); renderMap(fals
 function goStep(i){
   if(i<0||i>=state.steps.length) return;
   trk.stepM=0;
+  setTimeout(speakCurrent,0);
   state.idx=i; state.view=state.steps[i].floor; state.zoom='step';
   renderGuide(); renderTabs(); renderMap(true);
 }
+
+/* ---------- القراءة بالصوت ---------- */
+const voice = {on:false, msg:'', acted:false};
+try{ voice.on = localStorage.getItem('guide-voice')==='1'; }catch(e){}
+function arVoice(){ try{ const vs=speechSynthesis.getVoices(); return vs.find(v=>/^ar[-_]SA/i.test(v.lang)) || vs.find(v=>/^ar/i.test(v.lang)) || null; }catch(e){ return null; } }
+function spokenText(t){
+  const m=n=>{ n=+n; return n===1?'متراً واحداً':n===2?'مترين':(n%100>=3&&n%100<=10)?n+' أمتار':n+' متراً'; };
+  return t.replace(/\s*\((زر [^)]+)\)/g,'، واضغط $1').replace(/(\d+) م(?![\u0600-\u06FF])/g,(x,n)=>m(n)).replace(/·/g,'،');
+}
+function speak(text){
+  if(!voice.on || !('speechSynthesis' in window)) return;
+  try{
+    speechSynthesis.cancel();
+    const u=new SpeechSynthesisUtterance(spokenText(text));
+    const v=arVoice(); if(v) u.voice=v;
+    u.lang = v ? v.lang : 'ar-SA'; u.rate=0.95; u.pitch=1;
+    speechSynthesis.speak(u);
+  }catch(e){}
+}
+function speakCurrent(){ const st=state.steps[state.idx]; if(st) speak(st.text); }
+function toggleVoice(){
+  voice.msg='';
+  if(!('speechSynthesis' in window)){ voice.on=false; voice.msg='المتصفح في هذا الجوال لا يدعم القراءة بالصوت.'; renderGuide(); return; }
+  voice.on=!voice.on;
+  try{ localStorage.setItem('guide-voice', voice.on?'1':'0'); }catch(e){}
+  if(voice.on){
+    if(!arVoice()) voice.msg='لم أجد صوتاً عربياً مثبتاً في جوالك؛ ستُقرأ التعليمات بالصوت المتاح. يمكنك إضافة الصوت العربي من إعدادات الجوال (إمكانية الوصول ← المحتوى المنطوق).';
+    renderGuide(); speakCurrent();
+  } else { try{ speechSynthesis.cancel(); }catch(e){} renderGuide(); }
+}
+if('speechSynthesis' in window){ try{ speechSynthesis.getVoices(); speechSynthesis.onvoiceschanged=()=>{}; }catch(e){} }
 
 /* ---------- تتبّع الخطوات (مستشعر الحركة) ---------- */
 function pointAlong(pts,u){
@@ -714,7 +752,7 @@ function onStep(){
     try{ navigator.vibrate && navigator.vibrate(150); }catch(e){}
     goStep(state.idx+1);
   } else {
-    if(last && trk.stepM>=st.len-0.5 && !trk.done){ trk.done=true; try{ navigator.vibrate && navigator.vibrate([120,80,120]); }catch(e){} }
+    if(last && trk.stepM>=st.len-0.5 && !trk.done){ trk.done=true; try{ navigator.vibrate && navigator.vibrate([120,80,120]); }catch(e){} speak('لقد وصلت إلى وجهتك'); }
     renderMap(false); updateTrackInfo();
   }
 }
@@ -741,7 +779,9 @@ function stopTracking(){
 
 /* ---------- الأحداث ---------- */
 document.addEventListener('click', e=>{
+  voice.acted=true;
   const t=e.target.closest('button'); if(!t) return;
+  if(t.id==='voiceBtn'){ toggleVoice(); return; }
   if(t.dataset.start){ state.startMode=t.dataset.start; if(t.dataset.start!=='room' && state.zone==='car' && !N['B1:car']) state.zone=null; recompute(); return; }
   if(t.dataset.zone!==undefined){
     const z=t.dataset.zone||null;
@@ -785,7 +825,11 @@ recompute();
 
 <script>
 (function(){
-  if('serviceWorker' in navigator){ window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{})); }
+  if('serviceWorker' in navigator){
+    const had=!!navigator.serviceWorker.controller; let reloading=false;
+    navigator.serviceWorker.addEventListener('controllerchange',()=>{ if(!had||reloading) return; reloading=true; location.reload(); });
+    window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>r.update()).catch(()=>{}));
+  }
   const bar=document.getElementById('installBar'), btn=document.getElementById('installBtn'), txt=document.getElementById('installText');
   const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
   let dismissed=false; try{ dismissed=localStorage.getItem('guide-install-x')==='1'; }catch(e){}
