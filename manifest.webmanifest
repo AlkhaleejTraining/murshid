@@ -1,0 +1,31 @@
+{
+  "name": "مرشد القاعات – مركز الخليج للتدريب",
+  "short_name": "مرشد القاعات",
+  "description": "من موقف السيارة إلى باب القاعة في مركز الخليج للتدريب – النرجس فيو",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#EDEFEB",
+  "theme_color": "#1B201E",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
