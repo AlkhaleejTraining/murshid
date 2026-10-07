@@ -45,6 +45,12 @@
 
 
 
+
+
+
+
+
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=Readex+Pro:wght@500;600;700&display=swap">
@@ -121,7 +127,7 @@ h2.q{font-family:var(--f-display);font-size:1.5rem;margin:6px 0 0;line-height:1.
 .topbar .to b{display:block;font-family:var(--f-display);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tb{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:7px 11px;font-size:.85rem;font-weight:600;white-space:nowrap}
 .mapwrap{position:relative;flex:1;min-height:0;background:var(--surface)}
-#map{display:block;width:100%;height:100%;direction:rtl;touch-action:manipulation}
+#map{display:block;width:100%;height:100%;direction:rtl;touch-action:none}
 .fab{position:absolute;inset-inline-start:10px;display:flex;flex-direction:column;gap:8px;top:10px}
 .fab button{width:44px;height:44px;border-radius:12px;border:1px solid var(--line);background:var(--surface);display:grid;place-items:center;font-family:var(--f-display);font-weight:700;font-size:.9rem;box-shadow:0 2px 6px rgba(0,0,0,.12)}
 .fab button.on{background:var(--route);color:#fff;border-color:var(--route)}
@@ -598,17 +604,13 @@ function renderNav(){
   $('zoomBtn').innerHTML = icon(state.zoom==='step'?'zoomOut':'zoomIn');
   $('pickBtn').innerHTML = icon('start'); $('pickBtn').classList.toggle('on', !!state.pick);
   const b=$('banner');
-  if(state.pick){ b.hidden=false;
-    b.innerHTML = state.pick==='car'
-      ? '<div>انقر على مكان سيارتك في الخريطة</div>'
-      : '<div>انقر على المكان الذي تقف فيه الآن</div>'; }
-  else b.hidden=true;
+  b.hidden=true; // التعليمة تظهر أسفل الخريطة في البطاقة حتى لا تحجب المواقف
   renderGuide();
 }
 function renderGuide(){
   const card=$('card'); if(!card) return;
   const steps=state.steps;
-  if(state.pick){ card.innerHTML='<div class="note2">بعد النقر يُرسم المسار ويبدأ التوجيه.</div>'; return; }
+  if(state.pick){ card.innerHTML=`<div class="big" style="text-align:center">${state.pick==='car'?'انقر على مكان سيارتك في الخريطة':'انقر على المكان الذي تقف فيه الآن'}</div><div class="note2" style="text-align:center">كبّر الخريطة بإصبعين لرؤية الأعمدة بوضوح.</div>`; return; }
   if(!state.path){ card.innerHTML='<div class="big">لا يوجد مسار متاح.</div>'; return; }
   if(!steps.length){ card.innerHTML=`<div class="step"><div class="ico">${icon('arrive')}</div><div class="tx"><div class="big">أنت في الوجهة</div></div></div>`; return; }
   const s=steps[state.idx], last=state.idx===steps.length-1;
@@ -645,9 +647,9 @@ function lmTag(x,y,text,k){ const fs=10*k, w=(text.length*5.6+16)*k, h=18*k; ret
 function baseB1(){
   let s=`<image class="plan" href="${PLAN_B1}" x="40" y="30" width="760" height="535" preserveAspectRatio="none"/>`;
   const k=1.05;
-  s+='<rect class="zone-g" x="48" y="100" width="420" height="264" rx="6"/><rect class="zone-b" x="48" y="500" width="380" height="60" rx="6"/>';
-  s+=lmTag(250,272,'منطقة الأعمدة الخضراء',k)+lmTag(250,506,'منطقة الأعمدة الزرقاء',k);
-  s+=lmTag(190,244,'مصعد C,E · عمود F13',k)+lmTag(120,560,'المصاعد الغربية · عمود A15',k)+lmTag(330,470,'المصعد الشرقي',k);
+  s+='<rect class="zone-g" x="48" y="100" width="420" height="264" rx="6"/><rect class="zone-b" x="48" y="372" width="400" height="190" rx="6"/>';
+  s+=lmTag(250,272,'منطقة الأعمدة الخضراء',k)+lmTag(250,432,'منطقة الأعمدة الزرقاء',k);
+  s+=lmTag(190,244,'مصعد C,E · عمود F13',k)+lmTag(150,550,'المصاعد الغربية · عمود A15',k)+lmTag(330,470,'المصعد الشرقي',k);
   s+=lmTag(110,400,'المنحدر الغربي',k)+lmTag(560,240,'منحدر الدوّار',k);
   const x0=640, y=545, w=20/FLOORS.B1.scale;
   s+=`<path class="glyph" d="M${x0} ${y}h${w}M${x0} ${y-4}v8M${x0+w} ${y-4}v8"/><text class="lbl-m" x="${x0+w/2}" y="${y-7}" font-size="10">20 م</text>`;
@@ -663,11 +665,7 @@ function baseF1(){
 }
 function targetVB(){
   const F=FLOORS[state.view], st=state.steps[state.idx];
-  if(state.pick && state.view==='B1'){ // تكبير على منطقة مواقف الخليج لتسهيل النقر
-    const el=$('map'), r=(el.clientWidth||4)/(el.clientHeight||3); let w=330, h=330;
-    if(w/h<r) w=h*r; else h=w/r;
-    return [40, Math.max(30, Math.min(565-h, 400-h/2)), w, h];
-  }
+  if(state.pick) return F.vb.slice(); // عرض المخطط كاملاً عند تحديد المكان
   if(state.zoom!=='step' || !st || st.floor!==state.view) return F.vb.slice();
   let pts = st.pts.slice();
   if(st.at) pts.push(st.at);
@@ -926,7 +924,39 @@ document.addEventListener('click', e=>{
     state.dest='B1:'+state.savedZone; beginNav(); return;
   }
 });
+/* ---------- تكبير بإصبعين وسحب الخريطة ---------- */
+const gest={p:new Map(), moved:false, start:null};
+function svgPt(svg,x,y){ const m=svg.getScreenCTM(); return m? new DOMPoint(x,y).matrixTransform(m.inverse()) : {x:0,y:0}; }
+function clampVB(v){ const F=fitA(FLOORS[state.view].vb); let [x,y,w,h]=v; const mx=F[2], mn=60;
+  if(w>mx){ h*=mx/w; w=mx; } if(w<mn){ h*=mn/w; w=mn; }
+  x=Math.min(Math.max(x,F[0]-w*0.25),F[0]+F[2]-w*0.75); y=Math.min(Math.max(y,F[1]-h*0.25),F[1]+F[3]-h*0.75); return [x,y,w,h]; }
+function fitA(v){ const r=$('map').getBoundingClientRect(), a=(r.width||4)/(r.height||3); let [x,y,w,h]=v; if(w/h<a){ const nw=h*a; x-=(nw-w)/2; w=nw; } else { const nh=w/a; y-=(nh-h)/2; h=nh; } return [x,y,w,h]; }
+function applyVB(v){ if(anim) cancelAnimationFrame(anim); state.vb=clampVB(v); $('map').setAttribute('viewBox',state.vb.join(' ')); }
+(function(){
+  const svg=$('map');
+  svg.addEventListener('pointerdown',e=>{ gest.p.set(e.pointerId,{x:e.clientX,y:e.clientY}); if(gest.p.size===1){ gest.moved=false; gest.down={x:e.clientX,y:e.clientY}; } gest.start={vb:fitA(state.vb||targetVB()), pts:[...gest.p.values()].map(q=>({...q}))}; });
+  svg.addEventListener('pointermove',e=>{
+    if(!gest.p.has(e.pointerId)) return; gest.p.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    const S=gest.start, r=svg.getBoundingClientRect(), V=S.vb, upp=V[2]/r.width;
+    const cur=[...gest.p.values()];
+    if(cur.length>=2 && S.pts.length>=2){
+      const d0=Math.hypot(S.pts[0].x-S.pts[1].x,S.pts[0].y-S.pts[1].y)||1, d1=Math.hypot(cur[0].x-cur[1].x,cur[0].y-cur[1].y)||1;
+      const z=d0/d1, m0={x:(S.pts[0].x+S.pts[1].x)/2,y:(S.pts[0].y+S.pts[1].y)/2}, m1={x:(cur[0].x+cur[1].x)/2,y:(cur[0].y+cur[1].y)/2};
+      const ax=V[0]+(m0.x-r.left)*upp, ay=V[1]+(m0.y-r.top)*upp, w=V[2]*z, h=V[3]*z, u2=w/r.width;
+      applyVB([ax-(m1.x-r.left)*u2, ay-(m1.y-r.top)*u2, w, h]); gest.moved=true;
+    } else if(cur.length===1){
+      const dx=cur[0].x-gest.down.x, dy=cur[0].y-gest.down.y;
+      if(!gest.moved && Math.hypot(dx,dy)<10) return; gest.moved=true;
+      applyVB([V[0]-(cur[0].x-S.pts[0].x)*upp, V[1]-(cur[0].y-S.pts[0].y)*upp, V[2], V[3]]);
+    }
+  });
+  const up=e=>{ gest.p.delete(e.pointerId); gest.start={vb:fitA(state.vb||targetVB()), pts:[...gest.p.values()].map(q=>({...q}))}; };
+  svg.addEventListener('pointerup',up); svg.addEventListener('pointercancel',up);
+  svg.addEventListener('wheel',e=>{ e.preventDefault(); const r=svg.getBoundingClientRect(), V=fitA(state.vb||targetVB()), z=e.deltaY>0?1.15:1/1.15, upp=V[2]/r.width;
+    const ax=V[0]+(e.clientX-r.left)*upp, ay=V[1]+(e.clientY-r.top)*upp; applyVB([ax-(ax-V[0])*z, ay-(ay-V[1])*z, V[2]*z, V[3]*z]); },{passive:false});
+})();
 $('map').addEventListener('click', e=>{
+  if(gest.moved){ gest.moved=false; return; }
   const svg=$('map'), m=svg.getScreenCTM(); if(!m) return;
   const p=new DOMPoint(e.clientX,e.clientY).matrixTransform(m.inverse());
   voice.acted=true;
